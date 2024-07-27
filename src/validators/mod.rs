@@ -51,7 +51,7 @@ async fn handler(
             info!("Validator not found: {}", template);
             return (
                 StatusCode::UNAUTHORIZED,
-                "Token could not be validated".to_string(),
+                "Token could not be validated",
             )
                 .into_response();
         }
@@ -86,7 +86,7 @@ async fn handler(
             info!("Token is not valid UTF-8");
             return (
                 StatusCode::UNAUTHORIZED,
-                "Token is not valid UTF-8".to_string(),
+                "Token is not valid UTF-8",
             )
                 .into_response();
         }
@@ -112,9 +112,8 @@ async fn handler(
             info!("Failed to validate token: {}", e);
             return (
                 StatusCode::UNAUTHORIZED,
-                format!("Token isn't valid: {}", e),
-            )
-                .into_response();
+                "Token isn't valid",
+            ).into_response();
         }
     };
 
@@ -138,7 +137,7 @@ async fn handler(
                         );
                         return (
                             StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required audience".to_string(),
+                            "Token doesn't match required audience",
                         )
                             .into_response();
                     }
@@ -158,7 +157,7 @@ async fn handler(
                     info!("Token is missing required audience claim");
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing audience claim".to_string(),
+                        "Token is missing audience claim",
                     )
                         .into_response();
                 }
@@ -172,7 +171,7 @@ async fn handler(
                         );
                         return (
                             StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required issuer".to_string(),
+                            "Token doesn't match required issuer",
                         )
                             .into_response();
                     }
@@ -186,7 +185,7 @@ async fn handler(
                     info!("Token is missing issuer claim");
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing issuer claim".to_string(),
+                        "Token is missing issuer claim",
                     )
                         .into_response();
                 }
@@ -200,7 +199,7 @@ async fn handler(
                         );
                         return (
                             StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required subject".to_string(),
+                            "Token doesn't match required subject",
                         )
                             .into_response();
                     }
@@ -214,7 +213,7 @@ async fn handler(
                     info!("Token is missing subject claim");
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing subject claim".to_string(),
+                        "Token is missing subject claim",
                     )
                         .into_response();
                 }
@@ -228,7 +227,7 @@ async fn handler(
                         );
                         return (
                             StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required expiration".to_string(),
+                            "Token doesn't match required expiration",
                         )
                             .into_response();
                     }
@@ -242,7 +241,7 @@ async fn handler(
                     info!("Token is missing expiration claim");
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing expiration claim".to_string(),
+                        "Token is missing expiration claim",
                     )
                         .into_response();
                 }
@@ -256,7 +255,7 @@ async fn handler(
                         );
                         return (
                             StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required not before".to_string(),
+                            "Token doesn't match required not before",
                         )
                             .into_response();
                     }
@@ -270,7 +269,7 @@ async fn handler(
                     info!("Token is missing not before claim");
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing not before claim".to_string(),
+                        "Token is missing not before claim",
                     )
                         .into_response();
                 }
@@ -288,7 +287,7 @@ async fn handler(
                                 info!("Token contains invalid claim: {}", other);
                                 return (
                                     StatusCode::UNAUTHORIZED,
-                                    "Token contains invalid claim".to_string(),
+                                    "Token contains invalid claim",
                                 )
                                     .into_response();
                             }

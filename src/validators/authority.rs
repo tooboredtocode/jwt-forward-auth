@@ -134,7 +134,17 @@ impl fmt::Display for AuthorityError {
                 }
             }
             Self::JwtVerifyError(err) => {
-                write!(f, "JWT verification error: {}", err)
+                // Manually display errors that are otherwise hidden
+                match err {
+                    JwtVerifyError::JwkVerifyError(e) => {
+                        write!(f, "JWT verification error: token rejected by JWK: {}", e)
+                    }
+                    JwtVerifyError::ClaimsRejected(e) => {
+                        write!(f, "JWT verification error: token rejected by claims validator: {}", e)
+                    }
+                    _ => write!(f, "JWT verification error: {}", err)
+                }
+
             }
         }
     }
