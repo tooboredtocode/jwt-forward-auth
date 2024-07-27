@@ -1,0 +1,33 @@
+[package]
+name = "jwt-forward-auth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+
+this-state = "0.3"
+arc-swap = "1.7"
+dashmap = "6.0"
+
+notify = "6.1"
+
+futures-util = "0.3"
+tokio = { version = "1.39", features = ["full"] }
+
+axum = "0.7"
+tower-layer = "0.3"
+tower-http = { version = "0.5", features = ["normalize-path", "trace"] }
+reqwest = { version = "0.12", features = ["json"] }
+http = "1.1"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+time = "0.3"
+
+aliri = { version = "0.6", features = ["hmac", "rsa", "ec"] }
+aliri_clock = "0.1"

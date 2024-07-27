@@ -1,0 +1,51 @@
+# This is an example configuration file for the jwt-validator plugin
+
+# Define the authorities that will be used by the validators
+authorities:
+  some-authority:
+    jwks_url: "https://example.com/jwks.json"
+    approved_algorithms: # optional
+      - RS256
+      - ES256
+    leeway_seconds: 60 # default is 0
+    check_expiration: true # default is true
+    check_not_before: true # default is true
+    update_interval: 86400 # default is 3600 (1 hour)
+
+# Use templates to define common configurations
+validator_templates:
+  some-template:
+    authority: some-authority
+    header: "Authorization"
+    prefix: "Bearer "
+    required_claims:
+      - name: iss
+        value: "https://example.com"
+
+# Use the templates or just define the validators directly
+validators:
+  just-the-template:
+    template: some-template
+
+  without-template:
+    authority: some-authority
+    header: "Authorization"
+    prefix: "Bearer " # optional
+
+  require-claims:
+    template: some-template
+    required_claims:
+      - name: sub
+        value: "1234567890"
+      - name: email
+        values:
+          - "user1@example.com"
+          - "user2@example.com"
+
+  forward-claims:
+    template: some-template
+    required_claims:
+      - "sub"
+    map_claims:
+      sub: user_id # this header will always be set (given the required claims requirement)
+      email: email # this header will only be set if the claim is present
