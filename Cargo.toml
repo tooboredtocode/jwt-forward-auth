@@ -13,7 +13,7 @@ dashmap = "6.0"
 notify = "6.1"
 
 futures-util = "0.3"
-tokio = { version = "1.39", features = ["full"] }
+tokio = { version = "1.43", features = ["full"] }
 
 axum = "0.7"
 tower-layer = "0.3"
