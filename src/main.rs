@@ -40,7 +40,7 @@ fn main() {
     {
         Ok(runtime) => runtime,
         Err(err) => {
-            error!("Failed to create runtime: {}", err);
+            error!(error = %err, "Failed to create runtime");
             return;
         }
     };
@@ -77,11 +77,7 @@ async fn async_main(args: args::Args) -> Result<(), Shutdown> {
                     debug!("Received request");
                 })
                 .on_response(|res: &Response<_>, _: Duration, span: &Span| {
-                    span.record(
-                        "status_code",
-                        &tracing::field::display(res.status().as_u16()),
-                    );
-
+                    span.record("status_code", res.status().as_u16());
                     debug!("Finished processing request");
                 })
                 // We don't care about the following events

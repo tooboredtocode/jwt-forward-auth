@@ -1,8 +1,6 @@
 use axum::response::{IntoResponse, Response};
 use http::StatusCode;
 
-use super::describe;
-
 /// Why a request was not authorized. Carries only what the response body needs; the details
 /// are logged where the rejection is created.
 #[derive(Debug)]
@@ -33,5 +31,17 @@ impl IntoResponse for Rejection {
         };
 
         (StatusCode::UNAUTHORIZED, body).into_response()
+    }
+}
+
+/// Human-readable claim names if available
+fn describe(claim: &str) -> &str {
+    match claim {
+        "aud" => "audience",
+        "iss" => "issuer",
+        "sub" => "subject",
+        "exp" => "expiration",
+        "nbf" => "not before",
+        _ => claim,
     }
 }

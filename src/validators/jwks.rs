@@ -96,7 +96,7 @@ impl JwksState {
     pub async fn refresh(&self) -> Result<(), reqwest::Error> {
         let span = tracing::Span::current();
         span.record("jwks.url", &self.inner.uri.as_str());
-        debug!("refreshing JWKS");
+        debug!("Refreshing JWKS");
 
         let mut req = self.inner.client.get(&self.inner.uri);
 

@@ -22,13 +22,7 @@ where
     E: std::error::Error,
 {
     fn from(e: E) -> Self {
-        error!("Fatal error: {}", e);
-        let mut source = e.source();
-        while let Some(e) = source {
-            error!("Caused by: {}", e);
-            source = e.source();
-        }
-        error!("Shutting down");
+        error!(error = %e, "Fatal error, shutting down");
 
         Shutdown
     }
@@ -46,13 +40,7 @@ where
         match self {
             Ok(t) => Ok(t),
             Err(e) => {
-                error!("{}: {}", context(), e);
-                let mut source = e.source();
-                while let Some(e) = source {
-                    error!("Caused by: {}", e);
-                    source = e.source();
-                }
-                error!("Shutting down");
+                error!(error = %e, context = %context(), "Fatal error, shutting down");
 
                 Err(Shutdown)
             }

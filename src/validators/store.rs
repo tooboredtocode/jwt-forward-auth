@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::utils::ShutdownContext;
 
@@ -103,13 +103,13 @@ impl Store {
     }
 
     pub async fn start_file_watcher(&self, path: PathBuf) -> Result<(), Shutdown> {
-        info!("Loading configuration from: {}", path.display());
+        info!(config.path = %path.display(), "Loading configuration");
 
         let reloadable = Reloadable::new(
             path.clone(),
             |path| Config::load(path),
             |e| {
-                warn!("Notify error: {}", e);
+                warn!(error = %e, "Configuration file watcher error");
             },
         )
         .with_context(|| format!("Failed to load configuration from: {}", path.display()))?;
@@ -121,7 +121,7 @@ impl Store {
                 self.inner.states.set(States::Running);
             }
             Err(e) => {
-                warn!("Failed to load config: {}", e);
+                error!(error = %e, "Failed to load configuration; not serving requests");
                 self.inner.states.set(States::FaultyConfig);
             }
         }
@@ -137,7 +137,7 @@ impl Store {
                         let _ = this.inner.jwks.refresh_new().await;
                     }
                     Err(e) => {
-                        warn!("Failed to reload config: {}", e);
+                        error!(error = %e, "Failed to reload configuration; not serving requests");
                         // Set the state to faulty config, so that any probes know that the server
                         // cannot serve any requests
                         this.inner.states.set(States::FaultyConfig);

@@ -3,7 +3,7 @@ use axum::extract;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
-use tracing::{debug, info};
+use tracing::debug;
 
 async fn healthz() -> impl IntoResponse {
     debug!("Health check");
@@ -14,7 +14,7 @@ async fn healthz() -> impl IntoResponse {
 async fn readyz(extract::State(state): extract::State<State>) -> impl IntoResponse {
     match state.get() {
         States::Starting => {
-            info!("Ready check: Not ready (starting)");
+            debug!("Ready check: Not ready (starting)");
             (StatusCode::SERVICE_UNAVAILABLE, "Starting")
         }
         States::Running => {
@@ -22,7 +22,7 @@ async fn readyz(extract::State(state): extract::State<State>) -> impl IntoRespon
             (StatusCode::OK, "OK")
         }
         States::FaultyConfig => {
-            info!("Ready check: Not ready (faulty configuration)");
+            debug!("Ready check: Not ready (faulty configuration)");
             (StatusCode::INTERNAL_SERVER_ERROR, "Faulty configuration")
         }
     }
