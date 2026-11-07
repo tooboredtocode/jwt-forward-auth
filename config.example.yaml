@@ -17,7 +17,7 @@ validator_templates:
   some-template:
     authority: some-authority
     header: "Authorization"
-    prefix: "Bearer "
+    header_prefix: "Bearer "
     required_claims:
       - name: iss
         value: "https://example.com"
@@ -30,7 +30,7 @@ validators:
   without-template:
     authority: some-authority
     header: "Authorization"
-    prefix: "Bearer " # optional
+    header_prefix: "Bearer " # optional
 
   require-claims:
     template: some-template
