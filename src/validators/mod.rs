@@ -387,6 +387,6 @@ async fn handler(
 pub fn routes<S>(store: ValidatorsState) -> axum::Router<S> {
     axum::Router::new()
         .route("/", get(available_validators))
-        .route("/:template", any(handler))
+        .route("/{template}", any(handler))
         .with_state(store)
 }
