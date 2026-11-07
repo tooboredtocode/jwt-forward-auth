@@ -32,7 +32,7 @@ pub type State = ThisState<States>;
 fn main() {
     let args = args::Args::parse();
 
-    tracing_cfg::register_subscriber(args.ansi, &args.log);
+    tracing_cfg::register_subscriber(&args.log, args.log_format);
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()

@@ -1,13 +1,18 @@
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
-pub fn register_subscriber(use_ansi: bool, env_filter: &str) {
+use crate::args::LogFormat;
+
+pub fn register_subscriber(env_filter: &str, log_format: LogFormat) {
     let filter = EnvFilter::builder()
         .with_default_directive(Level::INFO.into())
         .parse_lossy(env_filter);
 
-    tracing_subscriber::fmt()
-        .with_ansi(use_ansi)
-        .with_env_filter(filter)
-        .init();
+    let sub = tracing_subscriber::fmt().with_env_filter(filter);
+
+    match log_format {
+        LogFormat::Logfmt => sub.with_ansi(true).init(),
+        LogFormat::LogfmtPlain => sub.with_ansi(false).init(),
+        LogFormat::Json => sub.json().init(),
+    }
 }

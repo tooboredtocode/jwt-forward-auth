@@ -17,5 +17,5 @@ RUN cargo build --release --bin jwt-forward-auth
 FROM gcr.io/distroless/cc-debian12 AS runtime
 
 COPY --from=builder /jwt-forward-auth/target/release/jwt-forward-auth /jwt-forward-auth
-ENV JWT_FWA_PLAIN_LOG=true
+ENV JWT_FWA_LOG_FORMAT=logfmt-plain
 ENTRYPOINT ["./jwt-forward-auth"]

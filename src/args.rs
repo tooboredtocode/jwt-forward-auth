@@ -1,8 +1,7 @@
-use std::env;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser};
+use clap::{Parser, ValueEnum};
 
 #[derive(Debug, Parser)]
 pub struct Args {
@@ -21,22 +20,28 @@ pub struct Args {
     /// The log filter configuration (e.g. "info,my_crate=debug").
     #[clap(short, long, default_value = "info", env = "JWT_FWA_LOG")]
     pub log: String,
+    /// The log format configuration
+    #[clap(
+        short = 'f',
+        long,
+        default_value = "logfmt",
+        env = "JWT_FWA_LOG_FORMAT"
+    )]
+    pub log_format: LogFormat,
+}
 
-    /// Whether to output the log using ansi colors. [env: JWT_FWA_PLAIN_LOG=] [default: true]
-    #[clap(short, long, action = ArgAction::SetFalse)]
-    pub ansi: bool,
+#[derive(Copy, Clone, PartialEq, Eq, Debug, ValueEnum)]
+pub enum LogFormat {
+    /// Logfmt with ANSI color codes.
+    Logfmt,
+    /// Logfmt without ANSI color codes.
+    LogfmtPlain,
+    /// JSON.
+    Json,
 }
 
 impl Args {
     pub fn parse() -> Self {
-        let mut res: Self = Parser::parse();
-
-        let plain = env::var_os("JWT_FWA_PLAIN_LOG");
-        match plain.as_ref().map(|v| v.as_encoded_bytes()) {
-            None | Some(b"0") | Some(b"f") | Some(b"false") => {}
-            _ => res.ansi = false,
-        }
-
-        res
+        Parser::parse()
     }
 }
