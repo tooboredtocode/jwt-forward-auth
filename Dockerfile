@@ -14,7 +14,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin jwt-forward-auth
 
-FROM gcr.io/distroless/cc-debian12 AS runtime
+FROM gcr.io/distroless/cc-debian13 AS runtime
 
 COPY --from=builder /jwt-forward-auth/target/release/jwt-forward-auth /jwt-forward-auth
 ENV JWT_FWA_LOG_FORMAT=logfmt-plain
