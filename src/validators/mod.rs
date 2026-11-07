@@ -4,7 +4,6 @@ use axum::response::IntoResponse;
 use axum::routing::{any, get};
 use axum::Json;
 use http::{header, HeaderMap, StatusCode};
-use serde_json::Value;
 use std::str::from_utf8;
 use tracing::info;
 
@@ -17,7 +16,7 @@ pub mod validator;
 pub use store::Store;
 pub use store::ValidatorsState;
 
-use crate::utils::header_val::header_val_lossy;
+use claims::{ClaimValue, UnsupportedClaimType};
 
 async fn available_validators(
     State(validators): State<ValidatorsState>,
@@ -117,271 +116,90 @@ async fn handler(
         }
     };
 
-    let mut headers = HeaderMap::new();
-    let mut already_inserted = Vec::new();
+    for required in validator.required_claims() {
+        let claim = required.name.as_str();
+        let claim_hr = describe(claim);
 
-    for claim in validator.required_claims() {
-        match claim.name.as_str() {
-            "aud" => match &claims.aud {
-                Some(aud) => {
-                    if !aud.iter().any(|aud| claim.value.matches(aud.as_str())) {
-                        let val = aud
-                            .iter()
-                            .map(|aud| aud.as_str())
-                            .collect::<Vec<&str>>()
-                            .join(",");
+        let claim_value = match claims.get(claim) {
+            Ok(Some(claim)) => claim,
+            Ok(None) => {
+                info!(claim, "Token is missing required {} claim", claim_hr);
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    format!("Token is missing required {} claim", claim_hr),
+                )
+                    .into_response();
+            }
+            Err(UnsupportedClaimType) => {
+                info!(
+                    claim,
+                    "Token contains unsupported type for required {} claim", claim_hr
+                );
+                return (StatusCode::UNAUTHORIZED, "Token contains invalid claim").into_response();
+            }
+        };
 
-                        info!(
-                            "No audience in token matches required audience: [{}] != {}",
-                            val, claim.value
-                        );
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required audience",
-                        )
-                            .into_response();
-                    }
-
-                    if let Some(key) = validator.map_claims().get("aud") {
-                        let val = aud
-                            .iter()
-                            .map(|aud| aud.as_str())
-                            .collect::<Vec<&str>>()
-                            .join(",");
-
-                        headers.insert(key, header_val_lossy(val));
-                        already_inserted.push("aud");
-                    }
-                }
-                None => {
-                    info!("Token is missing required audience claim");
+        match &claim_value {
+            ClaimValue::Audiences(aud) => {
+                if !aud.iter().any(|aud| required.value.matches(aud.as_str())) {
+                    info!(
+                        claim,
+                        "No audience in token matches required audience: [{}] != {}",
+                        claim_value,
+                        required.value
+                    );
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing audience claim",
+                        "Token doesn't match required audience claim",
                     )
                         .into_response();
                 }
-            },
-            "iss" => match &claims.iss {
-                Some(iss) => {
-                    if !claim.value.matches(iss.as_str()) {
-                        info!(
-                            "Token issuer doesn't match required issuer: {} != {}",
-                            iss, claim.value
-                        );
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required issuer",
-                        )
-                            .into_response();
-                    }
-
-                    if let Some(key) = validator.map_claims().get("iss") {
-                        headers.insert(key, header_val_lossy(iss.as_str()));
-                        already_inserted.push("iss");
-                    }
-                }
-                None => {
-                    info!("Token is missing issuer claim");
+            }
+            ClaimValue::Single(value) => {
+                if !required.value.matches(value) {
+                    info!(
+                        claim,
+                        "Token doesn't match required {} claim: {} != {}",
+                        claim_hr,
+                        value,
+                        required.value
+                    );
                     return (
                         StatusCode::UNAUTHORIZED,
-                        "Token is missing issuer claim",
+                        format!("Token doesn't match required {} claim", claim_hr),
                     )
                         .into_response();
-                }
-            },
-            "sub" => match &claims.sub {
-                Some(sub) => {
-                    if !claim.value.matches(sub.as_str()) {
-                        info!(
-                            "Token subject doesn't match required subject: {} != {}",
-                            sub, claim.value
-                        );
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required subject",
-                        )
-                            .into_response();
-                    }
-
-                    if let Some(key) = validator.map_claims().get("sub") {
-                        headers.insert(key, header_val_lossy(sub.as_str()));
-                        already_inserted.push("sub");
-                    }
-                }
-                None => {
-                    info!("Token is missing subject claim");
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        "Token is missing subject claim",
-                    )
-                        .into_response();
-                }
-            },
-            "exp" => match &claims.exp {
-                Some(exp) => {
-                    if !claim.value.matches(&exp.to_string()) {
-                        info!(
-                            "Token expiration doesn't match required expiration: {} != {}",
-                            exp, claim.value
-                        );
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required expiration",
-                        )
-                            .into_response();
-                    }
-
-                    if let Some(key) = validator.map_claims().get("exp") {
-                        headers.insert(key, header_val_lossy(exp.to_string()));
-                        already_inserted.push("exp");
-                    }
-                }
-                None => {
-                    info!("Token is missing expiration claim");
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        "Token is missing expiration claim",
-                    )
-                        .into_response();
-                }
-            },
-            "nbf" => match &claims.nbf {
-                Some(nbf) => {
-                    if !claim.value.matches(&nbf.to_string()) {
-                        info!(
-                            "Token not before doesn't match required not before: {} != {}",
-                            nbf, claim.value
-                        );
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            "Token doesn't match required not before",
-                        )
-                            .into_response();
-                    }
-
-                    if let Some(key) = validator.map_claims().get("nbf") {
-                        headers.insert(key, header_val_lossy(nbf.to_string()));
-                        already_inserted.push("nbf");
-                    }
-                }
-                None => {
-                    info!("Token is missing not before claim");
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        "Token is missing not before claim",
-                    )
-                        .into_response();
-                }
-            },
-            other => {
-                match claims.other.get(other) {
-                    Some(v) => {
-                        let matcher = match v {
-                            Value::Null => String::new(),
-                            Value::Bool(v) => v.to_string(),
-                            Value::Number(v) => v.to_string(),
-                            Value::String(v) => v.clone(),
-                            // Arrays and objects shouldn't be present in the claims
-                            Value::Array(_) | Value::Object(_) => {
-                                info!("Token contains invalid claim: {}", other);
-                                return (
-                                    StatusCode::UNAUTHORIZED,
-                                    "Token contains invalid claim",
-                                )
-                                    .into_response();
-                            }
-                        };
-
-                        if !claim.value.matches(&matcher) {
-                            info!(
-                                "Token doesn't match required {} claim: {} != {}",
-                                other, matcher, claim.value
-                            );
-                            return (
-                                StatusCode::UNAUTHORIZED,
-                                format!("Token doesn't match required {} claim", other),
-                            )
-                                .into_response();
-                        }
-
-                        if let Some(key) = validator.map_claims().get(other) {
-                            headers.insert(key, header_val_lossy(matcher));
-                            already_inserted.push(other);
-                        }
-                    }
-                    None => {
-                        info!("Token is missing required {} claim", other);
-                        return (
-                            StatusCode::UNAUTHORIZED,
-                            format!("Token is missing required {} claim", other),
-                        )
-                            .into_response();
-                    }
                 }
             }
         }
     }
 
-    for (claim, header) in validator
+    let headers = validator
         .map_claims()
         .iter()
-        .filter(|(k, _)| !already_inserted.contains(&k.as_str()))
-    {
-        match claim.as_str() {
-            "aud" => {
-                if let Some(aud) = &claims.aud {
-                    let val = aud
-                        .iter()
-                        .map(|aud| aud.as_str())
-                        .collect::<Vec<&str>>()
-                        .join(",");
-
-                    headers.insert(header, header_val_lossy(val));
-                }
-            }
-            "iss" => {
-                if let Some(iss) = &claims.iss {
-                    headers.insert(header, header_val_lossy(iss.as_str()));
-                }
-            }
-            "sub" => {
-                if let Some(sub) = &claims.sub {
-                    headers.insert(header, header_val_lossy(sub.as_str()));
-                }
-            }
-            "exp" => {
-                if let Some(exp) = &claims.exp {
-                    headers.insert(header, header_val_lossy(exp.to_string()));
-                }
-            }
-            "nbf" => {
-                if let Some(nbf) = &claims.nbf {
-                    headers.insert(header, header_val_lossy(nbf.to_string()));
-                }
-            }
-            _ => {
-                if let Some(v) = claims.other.get(claim) {
-                    let val = match v {
-                        Value::Null => String::new(),
-                        Value::Bool(v) => v.to_string(),
-                        Value::Number(v) => v.to_string(),
-                        Value::String(v) => v.clone(),
-                        // Arrays and objects shouldn't be present in the claims
-                        Value::Array(_) | Value::Object(_) => continue,
-                    };
-
-                    headers.insert(header, header_val_lossy(val));
-                }
-            }
-        }
-    }
+        .filter_map(|(claim, header)| {
+            let value = claims.get(claim).ok().flatten()?;
+            Some((header.clone(), value.to_header_value()))
+        })
+        .collect::<HeaderMap>();
 
     info!("Token is valid and matches all required claims");
     if !headers.is_empty() {
         info!("Returning headers: {:?}", headers);
     }
     (StatusCode::OK, headers).into_response()
+}
+
+/// Human-readable claim names if available
+fn describe(claim: &str) -> &str {
+    match claim {
+        "aud" => "audience",
+        "iss" => "issuer",
+        "sub" => "subject",
+        "exp" => "expiration",
+        "nbf" => "not before",
+        _ => claim,
+    }
 }
 
 pub fn routes<S>(store: ValidatorsState) -> axum::Router<S> {
