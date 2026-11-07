@@ -1,6 +1,6 @@
 use aliri::JwtRef;
 use axum::extract::{Path, State};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::Json;
 use http::{header, HeaderMap, StatusCode};
@@ -10,6 +10,7 @@ use tracing::info;
 pub mod authority;
 pub mod claims;
 pub mod jwks;
+mod rejection;
 mod store;
 pub mod validator;
 
@@ -17,6 +18,7 @@ pub use store::Store;
 pub use store::ValidatorsState;
 
 use claims::{ClaimValue, UnsupportedClaimType};
+use rejection::Rejection;
 
 async fn available_validators(
     State(validators): State<ValidatorsState>,
@@ -43,16 +45,25 @@ async fn handler(
     State(validators): State<ValidatorsState>,
     Path(template): Path<String>,
     headers: HeaderMap,
-) -> impl IntoResponse {
-    let validator = match validators.get(&template) {
+) -> Response {
+    match validate(&validators, &template, &headers) {
+        Ok(headers) => (StatusCode::OK, headers).into_response(),
+        Err(rejection) => rejection.into_response(),
+    }
+}
+
+/// Validates the token in `headers` against the validator named `template`, returning the
+/// claim headers to forward on success.
+fn validate(
+    validators: &ValidatorsState,
+    template: &str,
+    headers: &HeaderMap,
+) -> Result<HeaderMap, Rejection> {
+    let validator = match validators.get(template) {
         Some(validator) => validator,
         None => {
             info!("Validator not found: {}", template);
-            return (
-                StatusCode::UNAUTHORIZED,
-                "Token could not be validated",
-            )
-                .into_response();
+            return Err(Rejection::UnknownValidator);
         }
     };
 
@@ -72,22 +83,16 @@ async fn handler(
         None => {
             info!("Token not found in header: {}", validator.header());
 
-            return (
-                StatusCode::UNAUTHORIZED,
-                format!("Header {} not found", validator.header()),
-            )
-                .into_response();
+            return Err(Rejection::MissingHeader {
+                header: validator.header().to_string(),
+            });
         }
     };
     let token = match from_utf8(token) {
         Ok(token) => JwtRef::from_str(token),
         Err(_) => {
             info!("Token is not valid UTF-8");
-            return (
-                StatusCode::UNAUTHORIZED,
-                "Token is not valid UTF-8",
-            )
-                .into_response();
+            return Err(Rejection::NotUtf8);
         }
     };
 
@@ -105,14 +110,11 @@ async fn handler(
         });
     }
 
-    let claims = match validator.authority().validate(&token) {
+    let claims = match validator.authority().validate(token) {
         Ok(claims) => claims,
         Err(e) => {
             info!("Failed to validate token: {}", e);
-            return (
-                StatusCode::UNAUTHORIZED,
-                "Token isn't valid",
-            ).into_response();
+            return Err(Rejection::InvalidToken);
         }
     };
 
@@ -124,18 +126,16 @@ async fn handler(
             Ok(Some(claim)) => claim,
             Ok(None) => {
                 info!(claim, "Token is missing required {} claim", claim_hr);
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    format!("Token is missing required {} claim", claim_hr),
-                )
-                    .into_response();
+                return Err(Rejection::MissingClaim {
+                    claim: claim.to_string(),
+                });
             }
             Err(UnsupportedClaimType) => {
                 info!(
                     claim,
                     "Token contains unsupported type for required {} claim", claim_hr
                 );
-                return (StatusCode::UNAUTHORIZED, "Token contains invalid claim").into_response();
+                return Err(Rejection::UnsupportedClaimType);
             }
         };
 
@@ -148,11 +148,9 @@ async fn handler(
                         claim_value,
                         required.value
                     );
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        "Token doesn't match required audience claim",
-                    )
-                        .into_response();
+                    return Err(Rejection::ClaimMismatch {
+                        claim: claim.to_string(),
+                    });
                 }
             }
             ClaimValue::Single(value) => {
@@ -164,11 +162,9 @@ async fn handler(
                         value,
                         required.value
                     );
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        format!("Token doesn't match required {} claim", claim_hr),
-                    )
-                        .into_response();
+                    return Err(Rejection::ClaimMismatch {
+                        claim: claim.to_string(),
+                    });
                 }
             }
         }
@@ -187,7 +183,7 @@ async fn handler(
     if !headers.is_empty() {
         info!("Returning headers: {:?}", headers);
     }
-    (StatusCode::OK, headers).into_response()
+    Ok(headers)
 }
 
 /// Human-readable claim names if available
