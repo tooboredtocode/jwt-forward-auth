@@ -1,9 +1,11 @@
+use std::error::Error;
 use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::utils::atomic_instant::AtomicInstant;
+use crate::utils::request_error::RequestErrorKind;
 use aliri::Jwks;
 use arc_swap::{ArcSwap, Guard};
 use dashmap::DashMap;
@@ -111,15 +113,24 @@ impl JwksState {
             }
         }
 
-        let res = req.send().await?;
+        let res = match req.send().await {
+            Ok(res) => res,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    error.kind = RequestErrorKind::of(&err).map(tracing::field::display),
+                    "JWKS refresh failed; request error"
+                );
+                return Err(err);
+            }
+        };
 
         if res.status() == StatusCode::NOT_MODIFIED {
             debug!("JWKS not modified");
             return Ok(());
         } else if let Err(err) = res.error_for_status_ref() {
-            let error: &dyn std::error::Error = &err;
             warn!(
-                error,
+                error = %err,
                 http.status_code = res.status().as_u16(),
                 "JWKS refresh failed; unexpected status code"
             );
@@ -144,8 +155,11 @@ impl JwksState {
                 self.inner.last_refresh.to_now();
             }
             Err(err) => {
-                let error: &dyn std::error::Error = &err;
-                warn!(error, "JWKS refresh failed; invalid JWKS");
+                warn!(
+                    error = %err,
+                    error.cause = err.source().map(tracing::field::display),
+                    "JWKS refresh failed; invalid JWKS"
+                );
                 return Err(err);
             }
         };
