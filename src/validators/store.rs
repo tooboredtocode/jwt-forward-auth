@@ -135,6 +135,12 @@ impl Store {
                         info!("Reloading configuration");
                         this.load(cfg);
                         let _ = this.inner.jwks.refresh_new().await;
+
+                        // Check if the state was previously set to FaultyConfig, and if so, set it
+                        // back to Running.
+                        if this.inner.states.get() == States::FaultyConfig {
+                            this.inner.states.set(States::Running);
+                        }
                     }
                     Err(e) => {
                         error!(error = %e, "Failed to reload configuration; not serving requests");
