@@ -326,7 +326,7 @@ async fn handler(
     for (claim, header) in validator
         .map_claims()
         .iter()
-        .filter(|(k, _)| already_inserted.contains(&k.as_str()))
+        .filter(|(k, _)| !already_inserted.contains(&k.as_str()))
     {
         match claim.as_str() {
             "aud" => {
